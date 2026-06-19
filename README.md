@@ -13,6 +13,20 @@
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/setup.ps1)))
 ```
 
+如果安装后出现“在此系统上禁止运行脚本”，请先为当前用户调整 PowerShell 执行策略，然后重新打开 PowerShell：
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+如果只是当前窗口还没有加载新安装的模块，可以重新打开 PowerShell，或在当前窗口手动加载模块：
+
+```powershell
+Import-Module WindowsDetailsFields
+```
+
+如果执行策略由公司、学校或安全软件通过组策略管理，上面的设置可能无效，需要联系管理员调整 PowerShell 执行策略。
+
 ## 示例
 
 ```powershell
@@ -72,4 +86,3 @@ Show-WindowsDetailsFields .jpg,.png
 
 - 查询结果来自当前系统，不同 Windows 版本、语言和已安装软件可能会显示不同字段。
 - 工具只查询会显示哪些字段，不会修改文件，也不会修改标题、作者、拍摄日期等文件属性。
-- 安装后如果当前窗口还不能识别命令，请重新打开 PowerShell，或运行 `Import-Module WindowsDetailsFields`。

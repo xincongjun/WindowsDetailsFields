@@ -304,6 +304,56 @@ function Backup-File($Path) {
     Write-Host "已备份：$BackupPath"
 }
 
+function Get-ModuleBackupFiles($ModuleDir) {
+    if (-not (Test-Path -LiteralPath $ModuleDir)) { return @() }
+
+    Get-ChildItem -LiteralPath $ModuleDir -Force -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.PSIsContainer -and $_.Name -like "$ModuleName.psm1.bak.*" }
+}
+
+function Test-OnlyModuleBackupFiles($ModuleDir) {
+    if (-not (Test-Path -LiteralPath $ModuleDir)) { return $false }
+
+    $Items = @(Get-ChildItem -LiteralPath $ModuleDir -Force -ErrorAction SilentlyContinue)
+    if ($Items.Count -eq 0) { return $true }
+
+    $BackupFiles = @(Get-ModuleBackupFiles $ModuleDir)
+    $Items.Count -eq $BackupFiles.Count
+}
+
+function Test-ExecutionPolicyError($ErrorRecord) {
+    if (-not $ErrorRecord) { return $false }
+
+    if ($ErrorRecord.Exception -is [System.Management.Automation.PSSecurityException]) {
+        return $true
+    }
+
+    $ErrorRecord.FullyQualifiedErrorId -like 'UnauthorizedAccess,*ImportModuleCommand'
+}
+
+function Write-ExecutionPolicyHelp($ModulePath) {
+    $PolicyText = $null
+    try {
+        $PolicyText = Get-ExecutionPolicy
+    } catch {}
+
+    $PolicySuffix = if ($PolicyText) { "当前有效策略：$PolicyText。" } else { '' }
+    Write-Warning "模块已安装，但当前 PowerShell 执行策略阻止加载脚本模块：$ModulePath。$PolicySuffix"
+    Write-Host '请先为当前用户调整 PowerShell 执行策略，然后重新打开 PowerShell：'
+    Write-Host '  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned'
+    Write-Host '如果设置执行策略后不想重新打开窗口，也可以在当前窗口手动加载模块：'
+    Write-Host "  Import-Module $ModuleName"
+
+    try {
+        $PolicyList = Get-ExecutionPolicy -List
+        $MachinePolicy = ($PolicyList | Where-Object Scope -eq 'MachinePolicy').ExecutionPolicy
+        $UserPolicy = ($PolicyList | Where-Object Scope -eq 'UserPolicy').ExecutionPolicy
+        if (($MachinePolicy -and $MachinePolicy -ne 'Undefined') -or ($UserPolicy -and $UserPolicy -ne 'Undefined')) {
+            Write-Warning '检测到执行策略可能由组策略管理。如果上面的命令无效，请联系系统管理员调整 PowerShell 执行策略。'
+        }
+    } catch {}
+}
+
 function Get-InstallTargets {
     $Documents = [Environment]::GetFolderPath('MyDocuments')
     if ([string]::IsNullOrWhiteSpace($Documents)) {
@@ -351,8 +401,9 @@ function Install-ModuleFile($InstallTarget) {
     $ModuleDirExists = Test-Path -LiteralPath $ModuleDir
     $SentinelExists = Test-Path -LiteralPath $SentinelPath
     $ModuleExists = Test-Path -LiteralPath $ModulePath
+    $ModuleDirHasOnlyBackups = $ModuleDirExists -and -not $SentinelExists -and (Test-OnlyModuleBackupFiles $ModuleDir)
 
-    if ($ModuleDirExists -and -not $SentinelExists -and -not $Force) {
+    if ($ModuleDirExists -and -not $SentinelExists -and -not $ModuleDirHasOnlyBackups -and -not $Force) {
         Write-Warning "检测到同名模块目录，已跳过：$ModuleDir。确认要覆盖时请加 -Force。"
         return $false
     }
@@ -459,7 +510,8 @@ function Uninstall-ModuleFile($InstallTarget) {
         return
     }
 
-    $ManagedPaths = @($ModulePath, $SentinelPath)
+    $ModuleBackupPaths = @(Get-ModuleBackupFiles $ModuleDir | ForEach-Object { $_.FullName })
+    $ManagedPaths = @($ModulePath, $SentinelPath) + $ModuleBackupPaths
     $ExistingManagedPaths = @($ManagedPaths | Where-Object { Test-Path -LiteralPath $_ })
     if (-not $ExistingManagedPaths) { return }
 
@@ -487,8 +539,6 @@ if ($Uninstall) {
 
     Remove-Module $ModuleName -Force -ErrorAction SilentlyContinue
     Remove-Item Function:\Show-WindowsDetailsFields -ErrorAction SilentlyContinue
-    Remove-Item Alias:\Get-WindowsDetailsFields -ErrorAction SilentlyContinue
-    Remove-Item Function:\Get-WindowsDetailsFields -ErrorAction SilentlyContinue
     Write-Host '卸载完成。重新打开 PowerShell 后会完全生效。'
     return
 }
@@ -508,12 +558,28 @@ $CurrentTargetName = if ($PSVersionTable.ContainsKey('PSEdition') -and $PSVersio
 
 $CurrentTarget = $InstalledTargets | Where-Object { $_.Name -eq $CurrentTargetName } | Select-Object -First 1
 $CurrentModulePath = if ($CurrentTarget) { Join-Path $CurrentTarget.ModuleDir "$ModuleName.psm1" } else { $null }
+$CurrentModuleImported = $false
+$CurrentModuleBlockedByPolicy = $false
 if ($CurrentModulePath -and (Test-Path -LiteralPath $CurrentModulePath)) {
-    Import-Module $CurrentModulePath -Force
+    try {
+        Import-Module $CurrentModulePath -Force -ErrorAction Stop
+        $CurrentModuleImported = $true
+    } catch {
+        if (Test-ExecutionPolicyError $_) {
+            $CurrentModuleBlockedByPolicy = $true
+            Write-ExecutionPolicyHelp $CurrentModulePath
+        } else {
+            throw
+        }
+    }
 }
 
 if ($WhatIfPreference) {
     Write-Host '预览完成，未写入任何文件。'
-} else {
+} elseif ($CurrentModuleBlockedByPolicy) {
+    Write-Host '安装完成。调整执行策略并重新打开 PowerShell 后可以运行：Show-WindowsDetailsFields .jpg'
+} elseif ($CurrentModuleImported) {
     Write-Host '安装完成。现在可以运行：Show-WindowsDetailsFields .jpg'
+} else {
+    Write-Host '安装完成。重新打开 PowerShell 后可以运行：Show-WindowsDetailsFields .jpg'
 }
