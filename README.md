@@ -10,7 +10,7 @@
 ## 安装
 
 ```powershell
-irm https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/setup.ps1 | iex
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/setup.ps1)))
 ```
 
 ## 示例
