@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param()
 
@@ -79,6 +79,29 @@ function Get-ModuleBackupFiles($ModuleDir) {
         Where-Object { -not $_.PSIsContainer -and $_.Name -like "$ModuleName.psm1.bak.*" }
 }
 
+function Test-UninstallShouldProcess($Target, $Action) {
+    $PSCmdletValue = $null
+    try {
+        $PSCmdletValue = Get-Variable -Name PSCmdlet -ValueOnly -ErrorAction Stop
+    } catch {}
+
+    if ($PSCmdletValue) {
+        return $PSCmdletValue.ShouldProcess($Target, $Action)
+    }
+
+    $WhatIfValue = $false
+    try {
+        $WhatIfValue = Get-Variable -Name WhatIfPreference -ValueOnly -ErrorAction Stop
+    } catch {}
+
+    if ($WhatIfValue) {
+        Write-Host ('What if: Performing the operation "{0}" on target "{1}".' -f $Action, $Target)
+        return $false
+    }
+
+    return $true
+}
+
 function Get-InstallTargets {
     $Documents = [Environment]::GetFolderPath('MyDocuments')
     if ([string]::IsNullOrWhiteSpace($Documents)) {
@@ -115,7 +138,7 @@ function Uninstall-ProfileImport($InstallTarget) {
 
     if ($NewContent -eq $Content) { return }
 
-    if ($PSCmdlet.ShouldProcess($Profile, 'Remove profile import')) {
+    if (Test-UninstallShouldProcess $Profile 'Remove profile import') {
         $OutputContent = if ([string]::IsNullOrWhiteSpace($NewContent)) {
             ''
         } else {
@@ -140,7 +163,7 @@ function Uninstall-ModuleFile($InstallTarget) {
     $ExistingManagedPaths = @($ManagedPaths | Where-Object { Test-Path -LiteralPath $_ })
     if (-not $ExistingManagedPaths) { return }
 
-    if ($PSCmdlet.ShouldProcess($ModuleDir, 'Remove managed module files')) {
+    if (Test-UninstallShouldProcess $ModuleDir 'Remove managed module files') {
         foreach ($Path in $ExistingManagedPaths) {
             Remove-Item -LiteralPath $Path -Force
         }
