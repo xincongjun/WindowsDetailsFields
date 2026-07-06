@@ -25,6 +25,29 @@ function Get-RepositoryFileUrl($FileName) {
     "https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/$FileName"
 }
 
+function Test-InstallShouldProcess($Target, $Action) {
+    $PSCmdletValue = $null
+    try {
+        $PSCmdletValue = Get-Variable -Name PSCmdlet -ValueOnly -ErrorAction Stop
+    } catch {}
+
+    if ($PSCmdletValue) {
+        return $PSCmdletValue.ShouldProcess($Target, $Action)
+    }
+
+    $WhatIfValue = $false
+    try {
+        $WhatIfValue = Get-Variable -Name WhatIfPreference -ValueOnly -ErrorAction Stop
+    } catch {}
+
+    if ($WhatIfValue) {
+        Write-Host ('What if: Performing the operation "{0}" on target "{1}".' -f $Action, $Target)
+        return $false
+    }
+
+    return $true
+}
+
 function Get-ModuleSource {
     if ($InstallScriptPath) {
         $LocalModulePath = Join-Path (Split-Path -Parent $InstallScriptPath) "$ModuleName.psm1"
@@ -180,7 +203,7 @@ function Install-ModuleFile($InstallTarget) {
         return $true
     }
 
-    if ($PSCmdlet.ShouldProcess($ModuleDir, 'Install module files')) {
+    if (Test-InstallShouldProcess $ModuleDir 'Install module files') {
         New-Item -ItemType Directory -Path $ModuleDir -Force | Out-Null
 
         if ($ModuleChanged) {
@@ -226,7 +249,7 @@ $EndMarker
         return
     }
 
-    if ($PSCmdlet.ShouldProcess($Profile, 'Update profile import')) {
+    if (Test-InstallShouldProcess $Profile 'Update profile import') {
         $Parent = Split-Path -Parent $Profile
         New-Item -ItemType Directory -Path $Parent -Force | Out-Null
         Backup-File $Profile
