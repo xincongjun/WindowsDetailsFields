@@ -13,7 +13,13 @@ $ModuleName = 'WindowsDetailsFields'
 $BeginMarker = '# BEGIN WindowsDetailsFields'
 $EndMarker = '# END WindowsDetailsFields'
 $SentinelName = '.managed-by-WindowsDetailsFields'
-$InstallScriptPath = $MyInvocation.MyCommand.Path
+$InstallScriptPath = if ($PSCommandPath) { $PSCommandPath } else { $null }
+if (-not $InstallScriptPath) {
+    $PathProperty = $MyInvocation.MyCommand.PSObject.Properties['Path']
+    if ($PathProperty) {
+        $InstallScriptPath = $PathProperty.Value
+    }
+}
 
 function Get-RepositoryFileUrl($FileName) {
     "https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/$FileName"
