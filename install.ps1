@@ -48,16 +48,25 @@ function Test-InstallShouldProcess($Target, $Action) {
     return $true
 }
 
+function Remove-LeadingBom($Text) {
+    if ($null -eq $Text) { return $Text }
+    if ($Text.Length -gt 0 -and $Text[0] -eq [char]0xFEFF) {
+        return $Text.Substring(1)
+    }
+
+    return $Text
+}
+
 function Get-ModuleSource {
     if ($InstallScriptPath) {
         $LocalModulePath = Join-Path (Split-Path -Parent $InstallScriptPath) "$ModuleName.psm1"
         if (Test-Path -LiteralPath $LocalModulePath) {
-            return [System.IO.File]::ReadAllText($LocalModulePath, [System.Text.UTF8Encoding]::new($true))
+            return (Remove-LeadingBom ([System.IO.File]::ReadAllText($LocalModulePath, [System.Text.UTF8Encoding]::new($true))))
         }
     }
 
     $ModuleUrl = Get-RepositoryFileUrl "$ModuleName.psm1"
-    return (Invoke-RestMethod -Uri $ModuleUrl)
+    return (Remove-LeadingBom (Invoke-RestMethod -Uri $ModuleUrl))
 }
 
 function Get-Utf8BomEncoding {
@@ -110,11 +119,28 @@ function Get-ProfileEncoding($Path) {
     }
 }
 
+function ConvertTo-FileBytes($Content, $Encoding) {
+    $Preamble = $Encoding.GetPreamble()
+    $ContentBytes = $Encoding.GetBytes($Content)
+    $Bytes = New-Object byte[] ($Preamble.Length + $ContentBytes.Length)
+    [Array]::Copy($Preamble, 0, $Bytes, 0, $Preamble.Length)
+    [Array]::Copy($ContentBytes, 0, $Bytes, $Preamble.Length, $ContentBytes.Length)
+    $Bytes
+}
+
 function Test-TextFileContent($Path, $Content, $Encoding) {
     if (-not (Test-Path -LiteralPath $Path)) { return $false }
 
     try {
-        return ([System.IO.File]::ReadAllText($Path, $Encoding) -eq $Content)
+        $ExistingBytes = [System.IO.File]::ReadAllBytes($Path)
+        $DesiredBytes = ConvertTo-FileBytes $Content $Encoding
+        if ($ExistingBytes.Length -ne $DesiredBytes.Length) { return $false }
+
+        for ($Index = 0; $Index -lt $ExistingBytes.Length; $Index++) {
+            if ($ExistingBytes[$Index] -ne $DesiredBytes[$Index]) { return $false }
+        }
+
+        return $true
     } catch {
         return $false
     }
