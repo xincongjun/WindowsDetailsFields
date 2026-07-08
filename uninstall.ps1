@@ -12,7 +12,6 @@ if ($PSVersionTable.ContainsKey('Platform') -and $PSVersionTable.Platform -ne 'W
 $ModuleName = 'WindowsDetailsFields'
 $BeginMarker = '# BEGIN WindowsDetailsFields'
 $EndMarker = '# END WindowsDetailsFields'
-$LegacySentinelName = '.managed-by-WindowsDetailsFields'
 
 function Get-Utf8BomEncoding {
     New-Object System.Text.UTF8Encoding -ArgumentList $true
@@ -154,12 +153,11 @@ function Uninstall-ProfileImport($InstallTarget) {
 function Uninstall-ModuleFile($InstallTarget) {
     $ModuleDir = $InstallTarget.ModuleDir
     $ModulePath = Join-Path $ModuleDir "$ModuleName.psm1"
-    $LegacySentinelPath = Join-Path $ModuleDir $LegacySentinelName
 
     if (-not (Test-Path -LiteralPath $ModuleDir)) { return }
 
     $ModuleBackupPaths = @(Get-ModuleBackupFiles $ModuleDir | ForEach-Object { $_.FullName })
-    $ManagedPaths = @($ModulePath, $LegacySentinelPath) + $ModuleBackupPaths
+    $ManagedPaths = @($ModulePath) + $ModuleBackupPaths
     $ExistingManagedPaths = @($ManagedPaths | Where-Object { Test-Path -LiteralPath $_ })
     if (-not $ExistingManagedPaths) { return }
 
