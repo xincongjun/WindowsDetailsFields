@@ -172,10 +172,8 @@ function Write-ExecutionPolicyHelp($ModulePath) {
 
     $PolicySuffix = if ($PolicyText) { "当前有效策略：$PolicyText。" } else { '' }
     Write-Warning "模块已安装，但当前 PowerShell 执行策略阻止加载脚本模块：$ModulePath。$PolicySuffix"
-    Write-Host '请先为当前用户调整 PowerShell 执行策略，然后重新打开 PowerShell：'
+    Write-Host '请先为当前用户调整 PowerShell 执行策略：'
     Write-Host '  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned'
-    Write-Host '如果设置执行策略后不想重新打开窗口，也可以在当前窗口手动加载模块：'
-    Write-Host "  Import-Module $ModuleName"
 
     try {
         $PolicyList = Get-ExecutionPolicy -List
@@ -318,7 +316,7 @@ if ($CurrentModulePath -and (Test-Path -LiteralPath $CurrentModulePath)) {
 if ($WhatIfPreference) {
     Write-Host '预览完成，未写入任何文件。'
 } elseif ($CurrentModuleBlockedByPolicy) {
-    Write-Host '安装完成。调整执行策略并重新打开 PowerShell 后可以运行：Show-WindowsDetailsFields .jpg'
+    Write-Host '安装完成。调整执行策略后可以运行：Show-WindowsDetailsFields .jpg'
 } elseif ($CurrentModuleImported) {
     Write-Host '安装完成。现在可以运行：Show-WindowsDetailsFields .jpg'
 } else {
