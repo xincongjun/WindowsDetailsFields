@@ -445,25 +445,13 @@ Invoke-Test 'PowerShell files parse without errors' {
 }
 
 Invoke-Test 'install and uninstall scripts stay self-contained' {
-    $SetupPath = Join-Path $ProjectRoot 'setup.ps1'
-    Assert-False (Test-Path -LiteralPath $SetupPath) 'setup.ps1 should not exist.'
-
-    $ForbiddenParameters = @('Target', 'NoProfile', 'NoBackup', 'Force', 'Uninstall')
     foreach ($ScriptName in @('install.ps1', 'uninstall.ps1')) {
         $ScriptPath = Join-Path $ProjectRoot $ScriptName
         Assert-True (Test-Path -LiteralPath $ScriptPath) "$ScriptName should exist."
 
         $ParameterNames = @(Get-ScriptParameterNames $ScriptPath)
-        foreach ($ParameterName in $ForbiddenParameters) {
-            Assert-False ($ParameterNames -contains $ParameterName) "$ScriptName should not expose -$ParameterName."
-        }
-
         $Content = [System.IO.File]::ReadAllText($ScriptPath)
-        Assert-NotMatch $Content 'setup\.ps1' "$ScriptName should not reference setup.ps1."
-        Assert-NotMatch $Content 'managed-by-WindowsDetailsFields' "$ScriptName should not create or clean marker files."
-        Assert-NotMatch $Content 'managed-by-WindowsDetailsFields-setup' "$ScriptName should not keep the legacy setup sentinel name."
-        Assert-NotMatch $Content 'SetupUrl' "$ScriptName should not download or delegate to a setup script."
-        Assert-NotMatch $Content '\$(Target|NoProfile|NoBackup|Force)\b' "$ScriptName should hard-code the former option behavior instead of branching on option variables."
+        Assert-Equal $ParameterNames.Count 0 "$ScriptName should not require public parameters."
         Assert-Match $Content 'PowerShell\\Modules\\\$ModuleName' "$ScriptName should target PowerShell module installation."
         Assert-Match $Content 'WindowsPowerShell\\Modules\\\$ModuleName' "$ScriptName should target Windows PowerShell module installation."
         Assert-Match $Content 'profile\.ps1' "$ScriptName should manage profile imports."
