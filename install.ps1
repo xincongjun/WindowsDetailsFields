@@ -297,12 +297,10 @@ $CurrentTargetName = if ($PSVersionTable.ContainsKey('PSEdition') -and $PSVersio
 
 $CurrentTarget = $InstalledTargets | Where-Object { $_.Name -eq $CurrentTargetName } | Select-Object -First 1
 $CurrentModulePath = if ($CurrentTarget) { Join-Path $CurrentTarget.ModuleDir "$ModuleName.psm1" } else { $null }
-$CurrentModuleImported = $false
 $CurrentModuleBlockedByPolicy = $false
 if ($CurrentModulePath -and (Test-Path -LiteralPath $CurrentModulePath)) {
     try {
         Import-Module $CurrentModulePath -Force -ErrorAction Stop
-        $CurrentModuleImported = $true
     } catch {
         if (Test-ExecutionPolicyError $_) {
             $CurrentModuleBlockedByPolicy = $true
@@ -317,8 +315,6 @@ if ($WhatIfPreference) {
     Write-Host '预览完成，未写入任何文件。'
 } elseif ($CurrentModuleBlockedByPolicy) {
     Write-Host '安装完成。调整执行策略后可以运行：Show-WindowsDetailsFields .jpg'
-} elseif ($CurrentModuleImported) {
-    Write-Host '安装完成。现在可以运行：Show-WindowsDetailsFields .jpg'
 } else {
-    Write-Host '安装完成。重新打开 PowerShell 后可以运行：Show-WindowsDetailsFields .jpg'
+    Write-Host '安装完成。可以运行：Show-WindowsDetailsFields .jpg'
 }
