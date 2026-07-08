@@ -18,12 +18,6 @@ irm https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/insta
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
-如果只是当前窗口还没有加载命令，可以重新打开 PowerShell，或手动运行：
-
-```powershell
-Import-Module WindowsDetailsFields
-```
-
 如果执行策略由公司、学校或安全软件通过组策略管理，上面的设置可能无效，需要联系管理员调整。
 
 ## 示例
