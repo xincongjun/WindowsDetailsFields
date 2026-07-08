@@ -12,7 +12,7 @@ if ($PSVersionTable.ContainsKey('Platform') -and $PSVersionTable.Platform -ne 'W
 $ModuleName = 'WindowsDetailsFields'
 $BeginMarker = '# BEGIN WindowsDetailsFields'
 $EndMarker = '# END WindowsDetailsFields'
-$SentinelName = '.managed-by-WindowsDetailsFields'
+$LegacySentinelName = '.managed-by-WindowsDetailsFields'
 
 function Get-Utf8BomEncoding {
     New-Object System.Text.UTF8Encoding -ArgumentList $true
@@ -79,14 +79,14 @@ function Get-ModuleBackupFiles($ModuleDir) {
         Where-Object { -not $_.PSIsContainer -and $_.Name -like "$ModuleName.psm1.bak.*" }
 }
 
-function Test-UninstallShouldProcess($Target, $Action) {
+function Test-UninstallShouldProcess($ShouldProcessTarget, $Action) {
     $PSCmdletValue = $null
     try {
         $PSCmdletValue = Get-Variable -Name PSCmdlet -ValueOnly -ErrorAction Stop
     } catch {}
 
     if ($PSCmdletValue) {
-        return $PSCmdletValue.ShouldProcess($Target, $Action)
+        return $PSCmdletValue.ShouldProcess($ShouldProcessTarget, $Action)
     }
 
     $WhatIfValue = $false
@@ -95,7 +95,7 @@ function Test-UninstallShouldProcess($Target, $Action) {
     } catch {}
 
     if ($WhatIfValue) {
-        Write-Host ('What if: Performing the operation "{0}" on target "{1}".' -f $Action, $Target)
+        Write-Host ('What if: Performing the operation "{0}" on target "{1}".' -f $Action, $ShouldProcessTarget)
         return $false
     }
 
@@ -154,12 +154,12 @@ function Uninstall-ProfileImport($InstallTarget) {
 function Uninstall-ModuleFile($InstallTarget) {
     $ModuleDir = $InstallTarget.ModuleDir
     $ModulePath = Join-Path $ModuleDir "$ModuleName.psm1"
-    $SentinelPath = Join-Path $ModuleDir $SentinelName
+    $LegacySentinelPath = Join-Path $ModuleDir $LegacySentinelName
 
     if (-not (Test-Path -LiteralPath $ModuleDir)) { return }
 
     $ModuleBackupPaths = @(Get-ModuleBackupFiles $ModuleDir | ForEach-Object { $_.FullName })
-    $ManagedPaths = @($ModulePath, $SentinelPath) + $ModuleBackupPaths
+    $ManagedPaths = @($ModulePath, $LegacySentinelPath) + $ModuleBackupPaths
     $ExistingManagedPaths = @($ManagedPaths | Where-Object { Test-Path -LiteralPath $_ })
     if (-not $ExistingManagedPaths) { return }
 

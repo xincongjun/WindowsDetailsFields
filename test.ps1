@@ -300,7 +300,7 @@ $ProfileBlockInitializer = @'
 $ModuleName = 'WindowsDetailsFields'
 $BeginMarker = '# BEGIN WindowsDetailsFields'
 $EndMarker = '# END WindowsDetailsFields'
-$SentinelName = '.managed-by-WindowsDetailsFields'
+$LegacySentinelName = '.managed-by-WindowsDetailsFields'
 '@
 
 $InstallScriptPathLiteral = (Join-Path $ProjectRoot 'install.ps1').Replace("'", "''")
@@ -385,10 +385,13 @@ Import-ScriptFunctionsForTest `
     -Path (Join-Path $ProjectRoot 'install.ps1') `
     -FunctionName @(
         'Get-RepositoryFileUrl',
+        'Test-InstallShouldProcess',
+        'Remove-LeadingBom',
         'Get-ModuleSource',
         'Get-Utf8BomEncoding',
         'Get-AnsiEncoding',
         'Get-ProfileEncoding',
+        'ConvertTo-FileBytes',
         'Test-TextFileContent',
         'Backup-File',
         'Test-ExecutionPolicyError',
@@ -410,6 +413,7 @@ Import-ScriptFunctionsForTest `
         'Get-ProfileEncoding',
         'Backup-File',
         'Get-ModuleBackupFiles',
+        'Test-UninstallShouldProcess',
         'Get-InstallTargets',
         'Remove-ProfileBlock',
         'Uninstall-ProfileImport',
@@ -626,7 +630,7 @@ Invoke-Test 'execution policy errors are recognized without hiding other errors'
     Assert-False (Test-InstallExecutionPolicyError $OtherRecord) 'Non-policy errors should not be classified as execution policy related.'
 }
 
-Invoke-Test 'install module file writes module sentinel backup and honors WhatIf' {
+Invoke-Test 'install module file writes module backup and honors WhatIf' {
         $Temp = New-TestTempDirectory
     try {
         $WhatIfTarget = New-TestInstallTarget (Join-Path $Temp 'whatif')
@@ -641,9 +645,8 @@ Invoke-Test 'install module file writes module sentinel backup and honors WhatIf
         $ExpectedModuleContent = (Get-InstallModuleSource).Trim() + "`r`n"
 
         Assert-True (Test-Path -LiteralPath $ModulePath) 'Install should write the module file.'
-        Assert-True (Test-Path -LiteralPath $SentinelPath) 'Install should write the sentinel file.'
+        Assert-False (Test-Path -LiteralPath $SentinelPath) 'Install should not write a sentinel file.'
         Assert-Equal (Get-Utf8FileContent $ModulePath) $ExpectedModuleContent 'Installed module content should match normalized source content.'
-        Assert-Equal (Get-Utf8FileContent $SentinelPath) "Managed by install.ps1.`r`n" 'Sentinel content should identify install.ps1.'
 
         [System.IO.File]::WriteAllText($ModulePath, "old module`r`n", (Get-InstallUtf8BomEncoding))
         Assert-True (Invoke-Quietly { Start-InstallModuleFileForTest $Target }) 'Install should update a changed module file.'
@@ -753,7 +756,7 @@ Invoke-Test 'uninstall module file removes only managed files and honors WhatIf'
         New-Item -ItemType File -Path (Join-Path $WhatIfTarget.ModuleDir '.managed-by-WindowsDetailsFields') -Force | Out-Null
         Invoke-Quietly { Start-UninstallModuleFileForTest $WhatIfTarget -WhatIf }
         Assert-True (Test-Path -LiteralPath (Join-Path $WhatIfTarget.ModuleDir 'WindowsDetailsFields.psm1')) 'WhatIf uninstall should keep the module file.'
-        Assert-True (Test-Path -LiteralPath (Join-Path $WhatIfTarget.ModuleDir '.managed-by-WindowsDetailsFields')) 'WhatIf uninstall should keep the sentinel file.'
+        Assert-True (Test-Path -LiteralPath (Join-Path $WhatIfTarget.ModuleDir '.managed-by-WindowsDetailsFields')) 'WhatIf uninstall should keep the legacy sentinel file.'
 
         $Target = New-TestInstallTarget (Join-Path $Temp 'with-unrelated')
         New-Item -ItemType Directory -Path $Target.ModuleDir -Force | Out-Null
@@ -765,7 +768,7 @@ Invoke-Test 'uninstall module file removes only managed files and honors WhatIf'
         Invoke-Quietly { Start-UninstallModuleFileForTest $Target }
 
         Assert-False (Test-Path -LiteralPath (Join-Path $Target.ModuleDir 'WindowsDetailsFields.psm1')) 'Uninstall should remove the managed module file.'
-        Assert-False (Test-Path -LiteralPath (Join-Path $Target.ModuleDir '.managed-by-WindowsDetailsFields')) 'Uninstall should remove the sentinel file.'
+        Assert-False (Test-Path -LiteralPath (Join-Path $Target.ModuleDir '.managed-by-WindowsDetailsFields')) 'Uninstall should remove the legacy sentinel file.'
         Assert-False (Test-Path -LiteralPath (Join-Path $Target.ModuleDir 'WindowsDetailsFields.psm1.bak.20260102030405')) 'Uninstall should remove managed module backups.'
         Assert-True (Test-Path -LiteralPath (Join-Path $Target.ModuleDir 'keep.txt')) 'Uninstall should preserve unrelated files.'
         Assert-True (Test-Path -LiteralPath $Target.ModuleDir) 'Uninstall should keep a non-empty module directory.'

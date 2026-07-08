@@ -12,7 +12,6 @@ if ($PSVersionTable.ContainsKey('Platform') -and $PSVersionTable.Platform -ne 'W
 $ModuleName = 'WindowsDetailsFields'
 $BeginMarker = '# BEGIN WindowsDetailsFields'
 $EndMarker = '# END WindowsDetailsFields'
-$SentinelName = '.managed-by-WindowsDetailsFields'
 $InstallScriptPath = if ($PSCommandPath) { $PSCommandPath } else { $null }
 if (-not $InstallScriptPath) {
     $PathProperty = $MyInvocation.MyCommand.PSObject.Properties['Path']
@@ -25,14 +24,14 @@ function Get-RepositoryFileUrl($FileName) {
     "https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/$FileName"
 }
 
-function Test-InstallShouldProcess($Target, $Action) {
+function Test-InstallShouldProcess($ShouldProcessTarget, $Action) {
     $PSCmdletValue = $null
     try {
         $PSCmdletValue = Get-Variable -Name PSCmdlet -ValueOnly -ErrorAction Stop
     } catch {}
 
     if ($PSCmdletValue) {
-        return $PSCmdletValue.ShouldProcess($Target, $Action)
+        return $PSCmdletValue.ShouldProcess($ShouldProcessTarget, $Action)
     }
 
     $WhatIfValue = $false
@@ -41,7 +40,7 @@ function Test-InstallShouldProcess($Target, $Action) {
     } catch {}
 
     if ($WhatIfValue) {
-        Write-Host ('What if: Performing the operation "{0}" on target "{1}".' -f $Action, $Target)
+        Write-Host ('What if: Performing the operation "{0}" on target "{1}".' -f $Action, $ShouldProcessTarget)
         return $false
     }
 
@@ -214,15 +213,12 @@ function Remove-ProfileBlock($Content) {
 function Install-ModuleFile($InstallTarget) {
     $ModuleDir = $InstallTarget.ModuleDir
     $ModulePath = Join-Path $ModuleDir "$ModuleName.psm1"
-    $SentinelPath = Join-Path $ModuleDir $SentinelName
     $Encoding = Get-Utf8BomEncoding
     $ModuleContent = (Get-ModuleSource).Trim() + "`r`n"
-    $SentinelContent = "Managed by install.ps1.`r`n"
 
     $ModuleExists = Test-Path -LiteralPath $ModulePath
     $ModuleChanged = -not (Test-TextFileContent $ModulePath $ModuleContent $Encoding)
-    $SentinelChanged = -not (Test-TextFileContent $SentinelPath $SentinelContent $Encoding)
-    if (-not $ModuleChanged -and -not $SentinelChanged) {
+    if (-not $ModuleChanged) {
         Write-Host "模块已是最新：$ModulePath"
         return $true
     }
@@ -233,10 +229,6 @@ function Install-ModuleFile($InstallTarget) {
         if ($ModuleChanged) {
             Backup-File $ModulePath
             [System.IO.File]::WriteAllText($ModulePath, $ModuleContent, $Encoding)
-        }
-
-        if ($SentinelChanged) {
-            [System.IO.File]::WriteAllText($SentinelPath, $SentinelContent, $Encoding)
         }
 
         Write-Host "已安装模块：$ModulePath"
