@@ -12,7 +12,13 @@
 irm https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/install.ps1 | iex
 ```
 
-如果安装后提示“在此系统上禁止运行脚本”，请先为当前用户调整 PowerShell 执行策略，然后重新打开 PowerShell：
+如果已经下载完整项目，也可以在项目目录执行：
+
+```powershell
+.\install.ps1
+```
+
+如果安装后提示“在此系统上禁止运行脚本”，请先为当前用户调整 PowerShell 执行策略：
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
@@ -61,6 +67,12 @@ Show-WindowsDetailsFields .jpg -FieldList PreviewDetails
 
 ```powershell
 irm https://raw.githubusercontent.com/xincongjun/WindowsDetailsFields/main/uninstall.ps1 | iex
+```
+
+如果已经下载完整项目，也可以在项目目录执行：
+
+```powershell
+.\uninstall.ps1
 ```
 
 ## 注意
