@@ -188,5 +188,5 @@ Remove-Item Function:\Show-WindowsDetailsFields -ErrorAction SilentlyContinue
 if ($WhatIfPreference) {
     Write-Host '预览完成，未写入任何文件。'
 } else {
-    Write-Host '卸载完成。重新打开 PowerShell 后会完全生效。'
+    Write-Host '卸载完成。'
 }
